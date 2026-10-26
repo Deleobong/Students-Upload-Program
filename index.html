@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Students Upload Program</title>
+<style>
+:root{
+  --bg:#F4F1E8;--surface:#FFFFFF;--ink:#1D2433;--muted:#5E6676;--line:#D6D1C2;
+  --brand:#1F4FD8;--brand-ink:#FFFFFF;--danger:#B3261E;--ok:#16794C;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:clamp(1.6rem,4vw,2.2rem);margin:0 0 4px;letter-spacing:-.01em}
+.sub{margin:0 0 22px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px}
+h2{font-size:1.1rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+label{display:block;font-weight:600;font-size:.9rem;margin-bottom:4px}
+input,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
+.bad input,.bad select{border-color:var(--danger)}
+.err{color:var(--danger);font-size:.85rem;margin-top:3px;min-height:1.2em}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+button{font:600 .95rem inherit;font-family:inherit;border-radius:8px;padding:10px 16px;cursor:pointer;border:1.5px solid var(--brand);background:var(--brand);color:var(--brand-ink)}
+button.ghost{background:none;color:var(--brand)}
+button.danger{background:none;border-color:var(--danger);color:var(--danger)}
+button:disabled{opacity:.4;cursor:not-allowed}
+#status{margin:12px 0 0;font-weight:600;min-height:1.4em}
+#status.ok{color:var(--ok)}#status.no{color:var(--danger)}
+.counter{color:var(--muted);font-size:.9rem;margin:0 0 10px}
+ol{margin:0;padding-left:1.4rem}
+li{padding:5px 0;border-bottom:1px solid var(--line)}
+li small{color:var(--muted)}
+.empty{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Students upload program</h1>
+  <p class="sub">Enter each student’s details, press Done, then see everyone who was added.</p>
+
+  <form class="card" id="form" novalidate>
+    <h2>Add a student</h2>
+    <div class="grid">
+      <div id="g-name"><label for="name">Name</label><input id="name" autocomplete="off" placeholder="Chidi Eze"><div class="err"></div></div>
+      <div id="g-matric"><label for="matric">Matric no.</label><input id="matric" autocomplete="off" placeholder="CSC/2026/014"><div class="err"></div></div>
+      <div id="g-level"><label for="level">Level</label>
+        <select id="level"><option value="">Select level</option><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option></select><div class="err"></div></div>
+      <div id="g-dept"><label for="dept">Department</label><input id="dept" autocomplete="off" placeholder="Computer Science"><div class="err"></div></div>
+    </div>
+    <div class="actions">
+      <button type="submit">Add student</button>
+      <button type="button" class="ghost" id="doneBtn">Done</button>
+      <button type="button" class="danger" id="removeBtn" disabled>Remove last student</button>
+    </div>
+    <p id="status" role="status"></p>
+  </form>
+
+  <section class="card" id="results" hidden>
+    <h2>Students added</h2>
+    <p class="counter" id="counter"></p>
+    <div id="list"></div>
+  </section>
+</div>
+
+<script>
+// 1. The array that stores every student.
+var students = [];
+
+// 2. Grab the page elements we need.
+var form = document.getElementById("form");
+var statusEl = document.getElementById("status");
+var results = document.getElementById("results");
+var listEl = document.getElementById("list");
+var counterEl = document.getElementById("counter");
+var removeBtn = document.getElementById("removeBtn");
+var fields = ["name", "matric", "level", "dept"];
+
+function setStatus(text, type) {
+  statusEl.textContent = text;
+  statusEl.className = type;
+}
+
+function showError(field, message) {
+  var box = document.getElementById("g-" + field);
+  box.querySelector(".err").textContent = message;
+  if (message !== "") { box.classList.add("bad"); } else { box.classList.remove("bad"); }
+}
+
+// 3. Add a student: check the inputs, then build an object and push it into the array.
+form.addEventListener("submit", function (e) {
+  e.preventDefault();
+  var name = document.getElementById("name").value.trim();
+  var matric = document.getElementById("matric").value.trim().toUpperCase();
+  var level = document.getElementById("level").value;
+  var dept = document.getElementById("dept").value.trim();
+  var valid = true;
+
+  fields.forEach(function (f) { showError(f, ""); });
+
+  if (name === "") { showError("name", "Enter the student’s name."); valid = false; }
+  if (matric === "") {
+    showError("matric", "Enter the matric number."); valid = false;
+  } else {
+    // loop through the array to look for a matric number that already exists
+    for (var i = 0; i < students.length; i++) {
+      if (students[i].matric === matric) {
+        showError("matric", "This matric number has already been added.");
+        valid = false;
+        break;
+      }
+    }
+  }
+  if (level === "") { showError("level", "Choose a level."); valid = false; }
+  if (dept === "") { showError("dept", "Enter the department."); valid = false; }
+
+  if (!valid) { setStatus("Fix the errors above and try again.", "no"); return; }
+
+  var student = { name: name, matric: matric, level: level, department: dept };
+  students.push(student);
+
+  form.reset();
+  document.getElementById("name").focus();
+  setStatus(student.name + " added. Total: " + students.length + ".", "ok");
+  updateButtons();
+  if (!results.hidden) { showNames(); }
+});
+
+// 4. Done: display the names of all students.
+document.getElementById("doneBtn").addEventListener("click", function () {
+  if (students.length === 0) { setStatus("No students have been added yet.", "no"); return; }
+  setStatus("", "");
+  showNames();
+  results.hidden = false;
+  results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+
+function showNames() {
+  if (students.length === 0) {
+    listEl.innerHTML = "<p class=\"empty\">No students in the system.</p>";
+    counterEl.textContent = "";
+    return;
+  }
+  var html = "<ol>";
+  for (var i = 0; i < students.length; i++) {
+    var s = students[i];
+    html += "<li>" + escapeHtml(s.name) + " <small>" + escapeHtml(s.matric) + " · " + s.level + " level · " + escapeHtml(s.department) + "</small></li>";
+  }
+  html += "</ol>";
+  listEl.innerHTML = html;
+  counterEl.textContent = "Total students: " + students.length;
+}
+
+// 5. Remove the last student added: pop() takes the last item off the array.
+removeBtn.addEventListener("click", function () {
+  if (students.length === 0) { setStatus("There is no student to remove.", "no"); return; }
+  var removed = students.pop();
+  setStatus(removed.name + " was removed. Total: " + students.length + ".", "ok");
+  updateButtons();
+  if (!results.hidden) { showNames(); }
+});
+
+function updateButtons() {
+  removeBtn.disabled = students.length === 0;
+}
+
+function escapeHtml(text) {
+  var d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
